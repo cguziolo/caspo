@@ -29,8 +29,8 @@ There is NO WARRANTY, to the extent permitted by law.\n
 
 def run():
     clingo_parser = argparse.ArgumentParser(add_help=False)
-    clingo_parser.add_argument("--clingo", dest="clingo", default="clingo", help="clingo solver binary (Default to 'clingo')", metavar="C")
-    
+    clingo_parser.add_argument("--gringo", dest="gringo", default="gringo", help="gringo 3 grounder binary (Default to 'gringo')", metavar="G")
+    clingo_parser.add_argument("--clasp",  dest="clasp", default="clasp", help="clasp 3 solver binary (Default to 'clasp')", metavar="C")
     parser = argparse.ArgumentParser("caspo", formatter_class=argparse.RawTextHelpFormatter,
                                      description="Reasoning on the response of logical signaling networks with ASP")
                                          
@@ -47,22 +47,12 @@ def run():
     learn.add_argument("--discretization", dest="discretization", default='round', choices=['round', 'floor', 'ceil'], help="discretization function: round, floor, ceil (Default to round)", metavar="T")                        
     learn.set_defaults(handler=handlers.learn)
     
-    design = subparsers.add_parser("design", parents=[clingo_parser])
-    design.add_argument("networks", help="logical networks in CSV format")
-    design.add_argument("midas", help="experimental dataset in MIDAS file")                    
-    design.add_argument("--stimuli", dest="stimuli", type=int, default=-1,help="maximum number of stimuli per experiment", metavar="S")
-    design.add_argument("--inhibitors", dest="inhibitors", type=int, default=-1, help="maximum number of inhibitors per experiment", metavar="I")
-    design.add_argument("--experiments", dest="experiments", type=int, default=20, help="maximum number of experiments (Default to 20)", metavar="E")
-    design.set_defaults(handler=handlers.design)
-    
-    control = subparsers.add_parser("control")
+    control = subparsers.add_parser("control", parents=[clingo_parser])
     control.add_argument("networks", help="logical networks in CSV format")
     control.add_argument("scenarios", help="intervention scenarios in CSV format")                        
     control.add_argument("--size", dest="size", type=int, default=0, help="maximum size for interventions strategies (Default to 0 (no limit))", metavar="M")
     control.add_argument("--allow-constraints", dest="iconstraints", action='store_true', help="allow intervention over side constraints (Default to False)")    
     control.add_argument("--allow-goals", dest="igoals", action='store_true', help="allow intervention over goals (Default to False)")
-    control.add_argument("--gringo", dest="gringo", default="gringo", help="gringo grounder binary (Default to 'gringo')", metavar="G")
-    control.add_argument("--clasp",  dest="clasp", default="clasp", help="clasp solver binary (Default to 'clasp')", metavar="C")
     control.set_defaults(handler=handlers.control)
     
     analyze = subparsers.add_parser("analyze", parents=[clingo_parser])
@@ -81,8 +71,6 @@ def run():
     visualize.set_defaults(handler=handlers.visualize)
     
     test = subparsers.add_parser("test", parents=[clingo_parser])
-    test.add_argument("--gringo", dest="gringo", default="gringo", help="gringo grounder binary (Default to 'gringo')", metavar="G")
-    test.add_argument("--clasp", dest="clasp", default="clasp", help="clasp solver binary (Default to 'clasp')", metavar="C")
     test.add_argument("--testcase", help="testcase name", choices=["Toy", "LiverToy", "LiverDREAM", "ExtLiver"], default="Toy")
 
     parser.add_argument("--quiet", dest="quiet", action="store_true", help="do not print anything to standard output")
@@ -101,18 +89,15 @@ def run():
     
     if args.cmd != "test":
         printer.pprint("Running caspo %s...\n" % args.cmd)
-        if args.cmd in ['learn', 'design', 'analyze']:
-            potassco.configure(clingo=args.clingo)
-        elif args.cmd == 'control':
-            potassco.configure(gringo4=args.gringo, clasp3=args.clasp)
+        if args.cmd in ['learn', 'analyze', 'control']:
+            potassco.configure(gringo3=args.gringo, clasp3=args.clasp)
             
         return args.handler(args)
     else:
         testcase = args.testcase
-        clingo = args.clingo
         gringo = args.gringo
         clasp = args.clasp
-        potassco.configure(gringo4=args.gringo, clasp3=args.clasp, clingo=args.clingo)
+        potassco.configure(gringo3=args.gringo, clasp3=args.clasp)
         out = args.outdir
         
         printer.pprint("Testing caspo subcommands using test case %s.\n" % testcase)
@@ -142,18 +127,20 @@ def run():
         }
         
         params = testcases[testcase]
-        args = parser.parse_args(['--out', out, 'learn', '--clingo', clingo,
+        args = parser.parse_args(['--out', out, 'learn', '--gringo', gringo, '--clasp', clasp,
                                   os.path.join(out, 'pkn.sif'), 
                                   os.path.join(out, 'dataset.csv'), 
                                   params[0], '--fit', params[1], '--size', params[2]])
 
         cmdline = "$ caspo --out {out} learn {pkn} {midas} {time} --fit {fit} --size {size}"
-        if clingo != 'clingo':
-            cmdline += " --clingo {clingo}"
+        if gringo != 'gringo':
+            cmdline += " --gringo {gringo}"
+        if clasp != 'clasp':
+            cmdline += " --clasp {clasp}"
 
         cmdline += "\n"
         printer.pprint(cmdline.format(out=out, pkn=os.path.join(out, 'pkn.sif'), midas=os.path.join(out, 'dataset.csv'),
-                                      time=params[0], clingo=clingo, fit=params[1], size=params[2]))
+                                      time=params[0], gringo=gringo, clasp=clasp, fit=params[1], size=params[2]))
         try:
             args.handler(args)
         except Exception as e:
@@ -182,37 +169,20 @@ def run():
             
         printer.pprint("")
                 
-        args = parser.parse_args(['--out', out, 'analyze', '--clingo', clingo,
+        args = parser.parse_args(['--out', out, 'analyze', '--gringo', gringo, '--clasp', clasp,
                                   '--networks', os.path.join(out, 'networks.csv'), 
                                   '--midas', os.path.join(out, 'dataset.csv'), 
                                   params[0], '--strategies', os.path.join(out, 'strategies.csv')])
                                   
         cmdline = "$ caspo --out {out} analyze --networks {networks} --midas {midas} {time} --strategies {strategies}"
-        if clingo != 'clingo':
-            cmdline += " --clingo {clingo}"
+        if gringo != 'gringo':
+            cmdline += " --gringo {gringo}"
+        if clasp != 'clasp':
+            cmdline += " --clasp {clasp}"
 
         cmdline += "\n"        
         printer.pprint(cmdline.format(out=out, networks=os.path.join(out, 'networks.csv'), midas=os.path.join(out, 'dataset.csv'), 
-                                      time=params[0], strategies=os.path.join(out, 'strategies.csv'), clingo=clingo))
-        
-        try:
-            args.handler(args)
-        except Exception as e:
-            printer.pprint(e)
-            printer.pprint("Testing on caspo %s has failed." % args.cmd)
-            
-        printer.pprint("")
-                
-        args = parser.parse_args(['--out', out, 'design', '--clingo', clingo,
-                                  os.path.join(out, 'behaviors.csv'), 
-                                  os.path.join(out, 'dataset.csv')])
-
-        cmdline = "$ caspo --out {out} design {behaviors} {midas}"
-        if clingo != 'clingo':
-            cmdline += " --clingo {clingo}"
-
-        cmdline += "\n"        
-        printer.pprint(cmdline.format(out=out, behaviors=os.path.join(out, 'behaviors.csv'), midas=os.path.join(out, 'dataset.csv'), clingo=clingo))
+                                      time=params[0], strategies=os.path.join(out, 'strategies.csv'), gringo=gringo, clasp=clasp))
         
         try:
             args.handler(args)

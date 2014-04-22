@@ -4,8 +4,10 @@ def learn(args):
     from pyzcasp import asp, potassco
     from caspo import core, learn
 
-    clingo = component.getUtility(potassco.IClingo)
-
+    gringo = component.getUtility(potassco.IGringo3)
+    clasp = component.getUtility(potassco.IClasp3)
+    clingo = component.getMultiAdapter((gringo, clasp), asp.IGrounderSolver)
+    
     sif = component.getUtility(core.IFileReader)
     sif.read(args.pkn)
     graph = core.IGraph(sif)
@@ -31,43 +33,13 @@ def learn(args):
     
     return 0
     
-def design(args):
-    from zope import component
-
-    from pyzcasp import asp, potassco
-    from caspo import core, design
-    
-    clingo = component.getUtility(potassco.IClingo)
-    
-    reader = component.getUtility(core.ICsvReader)
-    reader.read(args.networks)
-    networks = core.IBooleLogicNetworkSet(reader)
-        
-    reader.read(args.midas)
-    dataset = core.IDataset(reader)
-    
-    instance = component.getMultiAdapter((networks, dataset.setup), asp.ITermSet)
-
-    designer = component.getMultiAdapter((instance, clingo), design.IDesigner)
-    exps = designer.design(max_stimuli=args.stimuli, max_inhibitors=args.inhibitors, max_experiments=args.experiments)
-    
-    if exps:
-        for i,exp in enumerate(exps):
-            writer = component.getMultiAdapter((exp, dataset.setup), core.ICsvWriter)
-            writer.write('opt-design-%s.csv' % i, args.outdir)
-    else:
-        printer = component.getUtility(core.IPrinter)
-        printer.pprint("There is no solutions matching your experimental design criteria.")
-        
-    return 0
-
 def control(args):    
     from zope import component
 
     from pyzcasp import potassco, asp
     from caspo import core, control
 
-    gringo = component.getUtility(potassco.IGringo4)
+    gringo = component.getUtility(potassco.IGringo3)
     clasp = component.getUtility(potassco.IClasp3)
 
     reader = component.getUtility(core.ICsvReader)
@@ -95,7 +67,10 @@ def analyze(args):
     from pyzcasp import asp, potassco
     from caspo import core, analyze, learn, control
     
-    clingo = component.getUtility(potassco.IClingo)
+    gringo = component.getUtility(potassco.IGringo3)
+    clasp = component.getUtility(potassco.IClasp3)
+    clingo = component.getMultiAdapter((gringo, clasp), asp.IGrounderSolver)
+    
     reader = component.getUtility(core.ICsvReader)
 
     lines = []

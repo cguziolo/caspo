@@ -28,7 +28,7 @@ from interfaces import *
 from impl import *
 
 class BoolLogicNetworkSet2BooleLogicBehaviorSet(core.BooleLogicNetworkSet):
-    component.adapts(core.IBooleLogicNetworkSet, core.IDataset, potassco.IGrounderSolver)
+    component.adapts(core.IBooleLogicNetworkSet, core.IDataset, asp.IGrounderSolver)
     interface.implements(IBooleLogicBehaviorSet)
     
     def __init__(self, networks, dataset, clingo):
